@@ -3,7 +3,13 @@
 **Fecha:** 21 de octubre de 2026
 **Entorno:** Sandbox
 **Widget:** `695e3d80-8c27-410d-8129-18c3e8943883`
-**Estado:** Reportado a PagArte — pendiente de respuesta
+**Estado:** ✅ Confirmado por PagArte como bug propio (21/10/2026). Fix en camino.
+
+> Respuesta de Carlos (Artemis): *"Sí parece ser un bug de nuestro lado […]
+> es un cambio pequeño y solo afecta ambientes locales y sandbox, en prod
+> debería estar bien. Ya vamos a desplegar un fix."*
+>
+> Para comprobar si ya salió: `./scripts/check-pagarte-fix.sh`
 
 ---
 

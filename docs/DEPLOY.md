@@ -5,57 +5,33 @@
 | | |
 |---|---|
 | Repo | https://github.com/Aurigital/pagarte-checkout (público) |
-| Proyecto Vercel | `pagarte-checkout` (cuenta `andresariasurena`) |
-| URL temporal | https://pagarte-checkout.vercel.app ✅ funcionando |
-| Dominio final | `pagarte.aurigital.com` ⏳ **falta el DNS** |
+| Proyecto Vercel | `pagarte-checkout` (cuenta **Aurigital**) |
+| Dominio | https://pagarte.aurigital.com ✅ DNS y SSL listos |
 | Credenciales | Sandbox (`pgart_test_…`) |
 
-## Pendiente: DNS en Hostinger
+## Variables de entorno (Vercel → Production)
 
-El subdominio hoy apunta a Hostinger (`88.223.87.175`). Hay que repuntarlo a
-Vercel con **dos registros**, en el panel de Hostinger → Dominios →
-`aurigital.com` → DNS / Nameservers.
+Las 7 van al entorno **Production**, con credenciales de **sandbox**. Ojo con
+las dos últimas: en Vercel llevan el dominio real, no `localhost`.
 
-### 1. Verificación de propiedad (TXT)
-
-Hace falta porque `aurigital.com` ya está verificado en otra cuenta de Vercel.
-
-| Campo | Valor |
-|---|---|
-| Tipo | `TXT` |
-| Nombre | `_vercel` |
-| Valor | `vc-domain-verify=pagarte.aurigital.com,5afd468e40ce2c292978` |
-| TTL | el que venga por defecto |
-
-### 2. Apuntar el subdominio (CNAME)
-
-Primero **borrá los registros A** existentes de `pagarte` (los que apuntan a
-`88.223.87.175` y `145.223.124.169`), o el subdominio seguirá yendo a Hostinger.
-
-| Campo | Valor |
-|---|---|
-| Tipo | `CNAME` |
-| Nombre | `pagarte` |
-| Valor | `f417470b35dfa9a8.vercel-dns-017.com.` |
-| TTL | el que venga por defecto |
-
-> Es el mismo patrón que ya usa `paylink.aurigital.com`
-> (`a555c07ddee09372.vercel-dns-017.com.`), así que el procedimiento es idéntico
-> al que seguiste para ese subdominio.
-
-### 3. Verificar
-
-El DNS puede tardar entre minutos y un par de horas. Para comprobarlo:
-
-```bash
-dig +short pagarte.aurigital.com CNAME
-# esperado: f417470b35dfa9a8.vercel-dns-017.com.
-
-curl -sI https://pagarte.aurigital.com | head -1
-# esperado: HTTP/2 307  (redirige a /login)
+```
+PAGARTE_API_URL=https://api.artemis.money
+NEXT_PUBLIC_PAGARTE_CHECKOUT_ORIGIN=https://checkout.pagarte.artemis.money
+PAGARTE_SECRET_KEY=pgart_test_…
+PAGARTE_WIDGET_ID=695e3d80-8c27-410d-8129-18c3e8943883
+STORE_ORIGIN=https://pagarte.aurigital.com
+NEXT_PUBLIC_BASE_URL=https://pagarte.aurigital.com
+AUTH_PASSWORD=…
 ```
 
-Vercel emite el certificado SSL solo cuando el DNS resuelve.
+> **Production (Vercel) no es lo mismo que Live (PagArte).** Production es el
+> entorno de despliegue; sandbox vs Live lo decide el prefijo de la llave.
+> Con `pgart_test_…` en Production, el sitio funciona con pagos simulados.
+
+**Tras guardarlas hay que hacer redeploy**: Vercel no re-despliega solo al
+cambiar variables. Deployments → el último → `⋯` → Redeploy.
+
+Si falta alguna, el login devuelve `{"error":"Server misconfiguration"}`.
 
 ## Después del DNS: el panel de Artemis
 
@@ -94,12 +70,17 @@ vercel --prod
 El código detecta el modo por el prefijo de la llave; el webhook valida
 `environment` en consecuencia, sin cambios.
 
+## Verificar si PagArte ya corrigió el iframe
+
+```bash
+./scripts/check-pagarte-fix.sh
+```
+
+Dice si la cabecera sigue bloqueando el checkout. Confirmado por ellos el
+21/10/2026 como bug propio, con un fix en camino.
+
 ## Notas
 
-- **El proyecto quedó en la cuenta personal** (`andresariasurena`, plan Hobby),
-  no en `AurigitalAurora's projects` (Pro), donde están los demás sitios. Si
-  preferís moverlo, se hace desde el dashboard de Vercel: Project Settings →
-  Transfer.
 - **El checkout embebido sigue bloqueado por PagArte** (ver
   `PAGARTE_IFRAME_ISSUE.md`). El deploy no cambia eso: todo lo demás funciona,
   pero el pago no se puede completar hasta que corrijan la cabecera.
