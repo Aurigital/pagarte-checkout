@@ -3,13 +3,21 @@
 **Fecha:** 21 de octubre de 2026
 **Entorno:** Sandbox
 **Widget:** `695e3d80-8c27-410d-8129-18c3e8943883`
-**Estado:** ✅ Confirmado por PagArte como bug propio (21/10/2026). Fix en camino.
+**Estado:** ✅ **RESUELTO** por PagArte el 21/10/2026.
 
-> Respuesta de Carlos (Artemis): *"Sí parece ser un bug de nuestro lado […]
-> es un cambio pequeño y solo afecta ambientes locales y sandbox, en prod
-> debería estar bien. Ya vamos a desplegar un fix."*
->
-> Para comprobar si ya salió: `./scripts/check-pagarte-fix.sh`
+La ruta del checkout ahora responde con el origen autorizado en vez de `'none'`:
+
+```
+frame-ancestors https://pagarte.aurigital.com
+```
+
+y sin `X-Frame-Options`. El checkout embebido funciona.
+
+> Ojo: la **raíz** del checkout (`/`) conserva `frame-ancestors 'none'`, lo cual
+> es correcto — solo la ruta `/checkout/{sessionId}` necesita ser embebible.
+> Comprobalo con `./scripts/check-pagarte-fix.sh`, que revisa la ruta real.
+
+Lo que sigue es el registro del problema, por si reaparece.
 
 ---
 

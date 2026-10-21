@@ -8,13 +8,16 @@ Desplegado en `pagarte.aurigital.com`.
 > Para el generador de links de ONVO y TiloPay, ver el repo `checkout_gen`
 > (`paylink.aurigital.com`). Este repo es solo PagArte.
 
-## ⚠️ Estado
+## Estado
 
-El checkout embebido de PagArte está **bloqueado del lado de ellos**
-(`frame-ancestors 'none'`). Todo lo demás funciona y está verificado contra la
-API real. Ver [docs/PAGARTE_IFRAME_ISSUE.md](./docs/PAGARTE_IFRAME_ISSUE.md) y
-el mensaje a enviarles en
-[docs/MENSAJE_PARA_PAGARTE.md](./docs/MENSAJE_PARA_PAGARTE.md).
+✅ Funcionando en https://pagarte.aurigital.com (sandbox).
+
+El bug del iframe que bloqueaba el checkout fue
+[corregido por PagArte](./docs/PAGARTE_IFRAME_ISSUE.md) el 21/10/2026.
+
+Para probar un pago, ver [docs/PROBAR_EN_SANDBOX.md](./docs/PROBAR_EN_SANDBOX.md):
+en sandbox la dirección cripto es un marcador y los pagos se **simulan** desde
+el panel, no se envían desde una wallet.
 
 ## Qué hace
 
@@ -58,8 +61,9 @@ ngrok http 3000
 
 - [Manual de integración](./docs/PAGARTE_INTEGRATION_MANUAL.md) — guía completa
   en español, pensada para que otro equipo integre PagArte desde cero
-- [Reporte del bug del iframe](./docs/PAGARTE_IFRAME_ISSUE.md)
-- [Mensaje para PagArte](./docs/MENSAJE_PARA_PAGARTE.md)
+- [Probar en sandbox](./docs/PROBAR_EN_SANDBOX.md) — cómo simular un pago
+- [Deploy](./docs/DEPLOY.md)
+- [Reporte del bug del iframe](./docs/PAGARTE_IFRAME_ISSUE.md) (resuelto)
 
 ## Stack
 
