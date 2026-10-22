@@ -68,6 +68,7 @@ ngrok http 3000
 - [Manual de integración](./docs/PAGARTE_INTEGRATION_MANUAL.md) — guía completa
   en español, pensada para que otro equipo integre PagArte desde cero
 - [Probar en sandbox](./docs/PROBAR_EN_SANDBOX.md) — cómo simular un pago
+- [Pasar a Live](./docs/PASAR_A_LIVE.md) — configuración y primera prueba real
 - [Persistencia](./docs/PERSISTENCIA.md) — **requerida en producción**
 - [Deploy](./docs/DEPLOY.md)
 - [Reporte del bug del iframe](./docs/PAGARTE_IFRAME_ISSUE.md) (resuelto)
