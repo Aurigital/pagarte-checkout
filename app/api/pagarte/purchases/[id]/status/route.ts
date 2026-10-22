@@ -16,7 +16,7 @@ export async function GET(
   _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const purchase = getPurchase(params.id)
+  const purchase = await getPurchase(params.id)
 
   if (!purchase) {
     return NextResponse.json({ success: false, error: 'Purchase not found' }, { status: 404 })
@@ -27,13 +27,13 @@ export async function GET(
       const session = await getCheckoutSession(purchase.sessionId)
 
       if (session.status === 'CONFIRMED') {
-        updatePurchase(purchase.id, { status: 'CONFIRMED' })
+        await updatePurchase(purchase.id, { status: 'CONFIRMED' })
       } else if (session.status === 'CANCELLED') {
-        updatePurchase(purchase.id, { status: 'CANCELLED' })
+        await updatePurchase(purchase.id, { status: 'CANCELLED' })
       } else if (session.status === 'EXPIRED') {
-        updatePurchase(purchase.id, { status: 'EXPIRED' })
+        await updatePurchase(purchase.id, { status: 'EXPIRED' })
       } else if (session.status === 'FAILED') {
-        updatePurchase(purchase.id, { status: 'FAILED' })
+        await updatePurchase(purchase.id, { status: 'FAILED' })
       }
     } catch (err) {
       // Reconciliation is best-effort: report what we have.
@@ -41,7 +41,7 @@ export async function GET(
     }
   }
 
-  const current = getPurchase(params.id)!
+  const current = (await getPurchase(params.id)) ?? purchase
 
   return NextResponse.json({
     success: true,

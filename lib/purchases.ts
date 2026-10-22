@@ -1,19 +1,21 @@
 /**
  * Purchase store.
  *
- * Deliberately small and swappable: the whole surface is the exported
- * functions below, so moving to a real database means reimplementing them
- * without touching routes or pages.
+ * Backed by Redis (Vercel KV / Upstash) when configured, falling back to an
+ * in-memory Map for local development.
  *
- * NOTE: this in-memory implementation is for the demo. On serverless
- * (Vercel) each instance has its own Map and it resets on cold start, so a
- * purchase created by one instance may be invisible to another. For
- * production, back these functions with a database (Postgres, Vercel KV…).
- * The webhook handler already reconciles against PagArte's API, which keeps
- * the demo usable despite this.
+ * The fallback is NOT safe on serverless: every instance keeps its own Map and
+ * loses it on cold start, so a webhook can land on an instance that never saw
+ * the purchase and silently drop a confirmed payment. That is exactly what
+ * happened before Redis was added, so in production the env vars below must be
+ * set.
+ *
+ * Every function is async so the backend can be swapped without touching
+ * callers.
  */
 
 import { randomUUID } from 'node:crypto'
+import { Redis } from '@upstash/redis'
 
 // ---------------------------------------------------------------------------
 // Types
@@ -42,23 +44,51 @@ export interface Purchase {
 }
 
 // ---------------------------------------------------------------------------
-// Storage
+// Backend
 // ---------------------------------------------------------------------------
 
-/**
- * Survives hot reloads in dev: Next re-evaluates modules on every change,
- * which would otherwise wipe the Map mid-test.
- */
+const PURCHASE_KEY = (id: string) => `purchase:${id}`
+const INDEX_KEY = 'purchases:index'
+const EVENT_KEY = (id: string) => `event:${id}`
+
+/** Processed webhook events expire after 30 days; replays are long dead by then. */
+const EVENT_TTL_SECONDS = 60 * 60 * 24 * 30
+
+function redisFromEnv(): Redis | null {
+  // Vercel's Redis integration injects KV_* ; a bare Upstash store uses UPSTASH_*
+  const url =
+    process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL ?? ''
+  const token =
+    process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN ?? ''
+
+  if (!url || !token) return null
+  return new Redis({ url, token })
+}
+
+const redis = redisFromEnv()
+
+/** True when purchases survive restarts. False means the in-memory fallback. */
+export const isPersistent = redis !== null
+
+/** Dev-only fallback. Kept on globalThis so hot reloads do not wipe it. */
 const globalStore = globalThis as unknown as {
   __pagartePurchases?: Map<string, Purchase>
   __pagarteEvents?: Set<string>
 }
 
-const purchases: Map<string, Purchase> =
+const memory: Map<string, Purchase> =
   globalStore.__pagartePurchases ?? (globalStore.__pagartePurchases = new Map())
 
-const processedEvents: Set<string> =
+const memoryEvents: Set<string> =
   globalStore.__pagarteEvents ?? (globalStore.__pagarteEvents = new Set())
+
+if (!redis && process.env.NODE_ENV === 'production') {
+  console.error(
+    '[purchases] No Redis configured in production. Purchases will be LOST on ' +
+      'cold starts and webhooks may not find them. Set KV_REST_API_URL and ' +
+      'KV_REST_API_TOKEN.'
+  )
+}
 
 // ---------------------------------------------------------------------------
 // Purchases
@@ -70,10 +100,10 @@ function newPurchaseId(): string {
   return `ord-${stamp}-${randomUUID().slice(0, 8)}`
 }
 
-export function createPurchase(input: {
+export async function createPurchase(input: {
   amountMinor: string
   description?: string
-}): Purchase {
+}): Promise<Purchase> {
   const now = new Date().toISOString()
   const id = newPurchaseId()
 
@@ -89,26 +119,45 @@ export function createPurchase(input: {
     updatedAt: now,
   }
 
-  purchases.set(id, purchase)
+  if (redis) {
+    await redis.set(PURCHASE_KEY(id), purchase)
+    // Sorted by creation time so the list comes back newest-first.
+    await redis.zadd(INDEX_KEY, { score: Date.parse(now), member: id })
+  } else {
+    memory.set(id, purchase)
+  }
+
   return purchase
 }
 
-export function getPurchase(id: string): Purchase | undefined {
-  return purchases.get(id)
+export async function getPurchase(id: string): Promise<Purchase | undefined> {
+  if (!redis) return memory.get(id)
+  const stored = await redis.get<Purchase>(PURCHASE_KEY(id))
+  return stored ?? undefined
 }
 
-/** Todos los cobros, del más reciente al más viejo. */
-export function listPurchases(): Purchase[] {
-  return Array.from(purchases.values()).sort((a, b) =>
-    b.createdAt.localeCompare(a.createdAt)
+/** Most recent first. */
+export async function listPurchases(limit = 100): Promise<Purchase[]> {
+  if (!redis) {
+    return Array.from(memory.values())
+      .sort((a, b) => b.createdAt.localeCompare(a.createdAt))
+      .slice(0, limit)
+  }
+
+  const ids = await redis.zrange<string[]>(INDEX_KEY, 0, limit - 1, { rev: true })
+  if (!ids.length) return []
+
+  const stored = await redis.mget<(Purchase | null)[]>(
+    ...ids.map((id) => PURCHASE_KEY(id))
   )
+  return stored.filter((p): p is Purchase => p !== null)
 }
 
-export function updatePurchase(
+export async function updatePurchase(
   id: string,
   patch: Partial<Omit<Purchase, 'id' | 'createdAt'>>
-): Purchase | undefined {
-  const existing = purchases.get(id)
+): Promise<Purchase | undefined> {
+  const existing = await getPurchase(id)
   if (!existing) return undefined
 
   const updated: Purchase = {
@@ -116,7 +165,13 @@ export function updatePurchase(
     ...patch,
     updatedAt: new Date().toISOString(),
   }
-  purchases.set(id, updated)
+
+  if (redis) {
+    await redis.set(PURCHASE_KEY(id), updated)
+  } else {
+    memory.set(id, updated)
+  }
+
   return updated
 }
 
@@ -124,8 +179,8 @@ export function updatePurchase(
  * Mints a fresh attempt key. Call this only once the previous session is
  * cancelled or expired — reusing a dead key would return the dead session.
  */
-export function startNewAttempt(id: string): Purchase | undefined {
-  const existing = purchases.get(id)
+export async function startNewAttempt(id: string): Promise<Purchase | undefined> {
+  const existing = await getPurchase(id)
   if (!existing) return undefined
 
   const attempt = Number(existing.idempotencyKey.split('-').pop() ?? '1') + 1
@@ -141,10 +196,15 @@ export function startNewAttempt(id: string): Purchase | undefined {
 // ---------------------------------------------------------------------------
 
 /** True when this eventId was already handled: PagArte may resend events. */
-export function hasProcessedEvent(eventId: string): boolean {
-  return processedEvents.has(eventId)
+export async function hasProcessedEvent(eventId: string): Promise<boolean> {
+  if (!redis) return memoryEvents.has(eventId)
+  return (await redis.exists(EVENT_KEY(eventId))) === 1
 }
 
-export function markEventProcessed(eventId: string): void {
-  processedEvents.add(eventId)
+export async function markEventProcessed(eventId: string): Promise<void> {
+  if (!redis) {
+    memoryEvents.add(eventId)
+    return
+  }
+  await redis.set(EVENT_KEY(eventId), 1, { ex: EVENT_TTL_SECONDS })
 }

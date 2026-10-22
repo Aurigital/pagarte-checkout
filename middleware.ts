@@ -15,6 +15,7 @@ const PUBLIC_PATHS = new Set([
  */
 function isPublicPagartePath(pathname: string): boolean {
   if (pathname === '/api/pagarte/webhook') return true
+  if (pathname === '/api/health') return true
   // /pay/<id> y /pay/<id>/processing
   if (/^\/pay\/[^/]+(\/processing)?$/.test(pathname)) return true
   // /api/pagarte/purchases/<id>/(checkout|checkout/cancel|status)

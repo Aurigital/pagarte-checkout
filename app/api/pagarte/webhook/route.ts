@@ -60,11 +60,11 @@ export async function POST(request: NextRequest) {
   }
 
   // 4. Process each eventId exactly once — PagArte resends events.
-  if (hasProcessedEvent(event.eventId)) {
+  if (await hasProcessedEvent(event.eventId)) {
     return NextResponse.json({ ok: true, duplicate: true }, { status: 200 })
   }
 
-  const purchase = getPurchase(event.data.merchantOrderId)
+  const purchase = await getPurchase(event.data.merchantOrderId)
   if (!purchase) {
     console.error('[pagarte/webhook] unknown purchase:', event.data.merchantOrderId)
     return NextResponse.json({ ignored: 'unknown purchase' }, { status: 200 })
@@ -90,12 +90,12 @@ export async function POST(request: NextRequest) {
   // Never walk back a confirmed purchase: a late cancel/expire event must not
   // undo a payment that already arrived.
   if (purchase.status === 'CONFIRMED' && nextStatus !== 'CONFIRMED') {
-    markEventProcessed(event.eventId)
+    await markEventProcessed(event.eventId)
     return NextResponse.json({ ok: true, ignored: 'already confirmed' }, { status: 200 })
   }
 
-  updatePurchase(purchase.id, { status: nextStatus, sessionId: event.data.sessionId })
-  markEventProcessed(event.eventId)
+  await updatePurchase(purchase.id, { status: nextStatus, sessionId: event.data.sessionId })
+  await markEventProcessed(event.eventId)
 
   console.log('[pagarte/webhook]', event.type, purchase.id, '→', nextStatus)
 

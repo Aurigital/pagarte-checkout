@@ -28,6 +28,11 @@ el panel, no se envían desde una wallet.
 - **Página de pago** — monta el SDK de PagArte para que el cliente pague
 - **Webhook firmado** — verificación Ed25519 con los chequeos de seguridad
 
+> ⚠️ **En producción hace falta Redis.** Sin él los cobros viven en memoria y
+> se pierden cuando Vercel recicla la instancia, lo que hace que un webhook
+> pueda no encontrar la compra. Ver [docs/PERSISTENCIA.md](./docs/PERSISTENCIA.md).
+> Comprobalo en `/api/health`: `"persistent": true`.
+
 ## Setup
 
 ```bash
@@ -62,6 +67,7 @@ ngrok http 3000
 - [Manual de integración](./docs/PAGARTE_INTEGRATION_MANUAL.md) — guía completa
   en español, pensada para que otro equipo integre PagArte desde cero
 - [Probar en sandbox](./docs/PROBAR_EN_SANDBOX.md) — cómo simular un pago
+- [Persistencia](./docs/PERSISTENCIA.md) — **requerida en producción**
 - [Deploy](./docs/DEPLOY.md)
 - [Reporte del bug del iframe](./docs/PAGARTE_IFRAME_ISSUE.md) (resuelto)
 

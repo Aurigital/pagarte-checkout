@@ -54,7 +54,7 @@ export async function POST(request: NextRequest) {
   // CRC tiene 2 decimales: ₡1500.50 → "150050"
   const amountMinor = String(Math.round(body.amount * 100))
 
-  const purchase = createPurchase({ amountMinor, description: body.description })
+  const purchase = await createPurchase({ amountMinor, description: body.description })
 
   return NextResponse.json(
     {
@@ -68,7 +68,7 @@ export async function POST(request: NextRequest) {
 
 /** Lista los cobros para el panel. */
 export async function GET() {
-  const purchases = listPurchases().map((p) => ({
+  const purchases = (await listPurchases()).map((p) => ({
     id: p.id,
     amountMinor: p.amountMinor,
     currency: p.currency,

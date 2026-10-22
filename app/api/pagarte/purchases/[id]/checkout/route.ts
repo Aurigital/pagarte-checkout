@@ -15,7 +15,7 @@ export async function POST(
   _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const purchase = getPurchase(params.id)
+  const purchase = await getPurchase(params.id)
 
   if (!purchase) {
     return NextResponse.json(
@@ -40,7 +40,7 @@ export async function POST(
       idempotencyKey: purchase.idempotencyKey,
     })
 
-    updatePurchase(purchase.id, { sessionId: session.sessionId })
+    await updatePurchase(purchase.id, { sessionId: session.sessionId })
 
     return NextResponse.json(session)
   } catch (err) {

@@ -9,7 +9,7 @@ export async function POST(
   _request: NextRequest,
   { params }: { params: { id: string } }
 ) {
-  const purchase = getPurchase(params.id)
+  const purchase = await getPurchase(params.id)
 
   if (!purchase) {
     return NextResponse.json({ success: false, error: 'Purchase not found' }, { status: 404 })
@@ -24,7 +24,7 @@ export async function POST(
       `${purchase.idempotencyKey}-cancel`
     )
 
-    updatePurchase(purchase.id, { status: 'CANCELLED' })
+    await updatePurchase(purchase.id, { status: 'CANCELLED' })
 
     return NextResponse.json({ success: true, status: session.status })
   } catch (err) {
