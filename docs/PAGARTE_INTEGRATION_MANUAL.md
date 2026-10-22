@@ -11,38 +11,25 @@ ejemplos oficiales en Node, Python, PHP y Go en la documentación de PagArte).
 
 ---
 
-## ⚠️ Estado conocido al 21 de octubre de 2026
+## Estado de esta guía
 
-**El checkout embebido de PagArte está bloqueado del lado de ellos.**
+Todo lo que sigue está **verificado contra la API real**, en sandbox y en
+producción, el 22 de octubre de 2026:
 
-El SDK carga el checkout en un iframe, pero esa página se sirve con
-`frame-ancestors 'none'` y `X-Frame-Options: DENY`, así que el navegador se
-niega a mostrarla. No es un problema de configuración del comercio: las
-cabeceras aparecen incluso en la raíz del checkout, antes de que exista
-ninguna sesión.
+| Verificación | Resultado |
+|---|---|
+| Crear sesión, idempotencia, rechazo de moneda y origen | ✅ |
+| Checkout embebido con el SDK | ✅ |
+| Pago exacto → compra completada | ✅ |
+| Pago parcial → la compra **no** se completa | ✅ |
+| Evento duplicado → no se reprocesa | ✅ |
+| Firma inválida → `400` | ✅ |
+| **Cobro real en Live** | ✅ ₡1 000 → 2.222195 USDT liquidados en Tron |
 
-Tampoco hay forma de rodearlo: abrir `/checkout/{sessionId}` directamente
-muestra "este pago ya no está disponible", porque el `clientSecret` solo llega
-al checkout por `postMessage` desde la página padre. **El iframe es el único
-camino de pago.**
-
-Todo lo demás de esta guía —crear la sesión, idempotencia, webhooks, manejo de
-errores— es correcto y está verificado contra la API real. Solo el paso de
-mostrar el checkout depende de que PagArte corrija la cabecera.
-
-**Verificá si ya se corrigió:**
-
-```bash
-curl -sI "https://checkout.pagarte.artemis.money/" \
-  | grep -iE "x-frame-options|frame-ancestors"
-```
-
-Está resuelto cuando `x-frame-options: DENY` desaparece y `frame-ancestors`
-lista los sitios autorizados del widget en vez de `'none'`.
-
-El detalle técnico completo está en `PAGARTE_IFRAME_ISSUE.md`.
-
----
+> Hubo un bug en el checkout embebido de PagArte (`frame-ancestors 'none'`)
+> que lo hacía imposible de mostrar. Se reportó y **Artemis lo corrigió el
+> 21/10/2026**. Si volviera a aparecer un iframe en blanco, el detalle está en
+> `PAGARTE_IFRAME_ISSUE.md`.
 
 ## 1. Qué es PagArte y en qué se diferencia
 
@@ -602,6 +589,26 @@ Para obtener el monto: `netAmountMinor / 10^decimals`. Por ejemplo `123456` con
 
 > **La liquidación es independiente de la confirmación.** Completá la compra
 > cuando el pago esté `CONFIRMED`, sin esperar a que la liquidación termine.
+
+### Ejemplo real
+
+Un cobro de producción del 22/10/2026, con la conversión automática
+**desactivada**:
+
+| | |
+|---|---|
+| Cobrado | ₡1 000,00 |
+| Método | USDT · Tron (TRC20) |
+| Pago recibido | 2,23 USDT |
+| **Liquidado al comercio** | **2,222195 USDT** |
+
+La diferencia entre lo recibido y lo liquidado es la comisión. Con la
+conversión desactivada el USDT llega directo a la billetera de Artemis, sin
+tipo de cambio de por medio: el saldo aparece en **USDT (TRC20)**, no en
+colones.
+
+Si en cambio la conversión está **activada**, se recibe CRC al tipo de cambio
+del momento, y ahí el neto puede diferir bastante del monto de la venta.
 
 ---
 

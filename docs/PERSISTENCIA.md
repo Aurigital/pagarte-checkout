@@ -44,11 +44,9 @@ Sin Redis, un pago confirmado se pierde igual.
 2. Elegí **Upstash** (Serverless Redis) y su plan **Free**.
    > No elijas *Redis Cloud*: es otro proveedor del mismo marketplace y su
    > plan más barato cuesta $8/mes. Upstash alcanza de sobra para este volumen.
-3. **Connect Project**. En el diálogo:
-   - **Environments:** Production y Preview.
-   - **Custom Environment Variable Prefix:** `KV` (Vercel sugiere `STORAGE`;
-     cualquiera de los dos sirve, ver abajo).
-   - **Sensitive:** activado.
+3. **Connect Project**, con Environments en *Production* y *Preview*,
+   Custom Environment Variable Prefix en `KV` (Vercel sugiere `STORAGE`;
+   cualquiera sirve, ver abajo) y *Sensitive* activado.
 4. **Redeploy** para que el deploy activo tome las variables.
 
 ### El prefijo no importa

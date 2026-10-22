@@ -41,9 +41,8 @@ dinero real"*.
 | Hacer fallar el próximo intento | La preparación falla (antes de elegir método) |
 | Dejar pendiente la conversión | Solo cripto: la liquidación queda `PENDING` |
 
-Tras un **pago exacto**, la compra debería pasar a **Pagado** en
-https://pagarte.aurigital.com/cobros — eso confirma que el webhook llegó, se
-verificó la firma y se completó la compra.
+Tras un **pago exacto**, el panel muestra **"Pago recibido"** — eso confirma
+que el webhook llegó, se verificó la firma y se completó la compra.
 
 ## Checklist antes de pasar a Live
 
