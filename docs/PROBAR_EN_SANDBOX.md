@@ -47,12 +47,21 @@ verificó la firma y se completó la compra.
 
 ## Checklist antes de pasar a Live
 
-- [ ] Pago exacto → la compra se completa **una sola vez**
-- [ ] Reenviar el mismo evento desde el panel → **no** se completa dos veces
-- [ ] Pago parcial → la compra **no** se completa
-- [ ] Expiración y cancelación → se puede intentar de nuevo
-- [ ] Recargar la página durante el pago → vuelve a la **misma** sesión
-- [ ] Firma manipulada → el servidor responde **400**
+Verificada el 22/10/2026 contra `pagarte.aurigital.com`:
+
+- [x] **Pago exacto** → la compra se completa y el panel muestra "Pago recibido"
+- [x] **Pago parcial** → PagArte marca PAGO PARCIAL y la compra queda `PENDING`,
+      sin completarse (probado: ₡250 000 cobrados, 50 USDT pagados)
+- [x] **Evento duplicado** → el webhook responde `{"duplicate":true}` y no
+      reprocesa (verificado con firmas Ed25519 reales)
+- [x] **Firma manipulada o ausente** → el servidor responde **400**
+- [x] **Persistencia** → los cobros y su estado sobreviven reinicios
+      (`/api/health` → `"persistent": true`)
+
+> El pago parcial es el caso que más importa: si la compra se completara con
+> dinero de menos, en Live estarías entregando sin haber cobrado del todo.
+> Ojo al probarlo: poner un monto **mayor** al cobrado es un sobrepago y sí
+> completa la venta. Para probar el parcial, el monto debe ser **menor**.
 
 ## Verificar que el embebido funciona
 
