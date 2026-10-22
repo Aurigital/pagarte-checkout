@@ -44,9 +44,24 @@ Sin Redis, un pago confirmado se pierde igual.
 2. Elegí **Upstash** (Serverless Redis) y su plan **Free**.
    > No elijas *Redis Cloud*: es otro proveedor del mismo marketplace y su
    > plan más barato cuesta $8/mes. Upstash alcanza de sobra para este volumen.
-3. **Connect Project**.
-4. Vercel inyecta `KV_REST_API_URL` y `KV_REST_API_TOKEN` solas.
-5. **Redeploy** para que el deploy activo las tome.
+3. **Connect Project**. En el diálogo:
+   - **Environments:** Production y Preview.
+   - **Custom Environment Variable Prefix:** `KV` (Vercel sugiere `STORAGE`;
+     cualquiera de los dos sirve, ver abajo).
+   - **Sensitive:** activado.
+4. **Redeploy** para que el deploy activo tome las variables.
+
+### El prefijo no importa
+
+El código acepta los tres que usa Vercel, así que no hay que acertarle:
+
+| Prefijo | De dónde viene |
+|---|---|
+| `KV_REST_API_*` | El convencional de Vercel |
+| `STORAGE_REST_API_*` | El que sugiere el diálogo de conexión |
+| `UPSTASH_REDIS_REST_*` | El propio de Upstash |
+
+`/api/health` informa cuál encontró, en el campo `storage`.
 
 ## Verificar que quedó activo
 

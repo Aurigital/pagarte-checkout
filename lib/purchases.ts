@@ -55,11 +55,22 @@ const EVENT_KEY = (id: string) => `event:${id}`
 const EVENT_TTL_SECONDS = 60 * 60 * 24 * 30
 
 function redisFromEnv(): Redis | null {
-  // Vercel's Redis integration injects KV_* ; a bare Upstash store uses UPSTASH_*
+  // The Vercel integration lets you pick the variable prefix when connecting
+  // the store, so accept the usual ones rather than depending on that choice:
+  // KV_* (Vercel default), UPSTASH_* (Upstash's own), STORAGE_* (the prefix
+  // Vercel suggests in the connect dialog).
   const url =
-    process.env.KV_REST_API_URL ?? process.env.UPSTASH_REDIS_REST_URL ?? ''
+    process.env.KV_REST_API_URL ??
+    process.env.UPSTASH_REDIS_REST_URL ??
+    process.env.STORAGE_REST_API_URL ??
+    process.env.STORAGE_KV_REST_API_URL ??
+    ''
   const token =
-    process.env.KV_REST_API_TOKEN ?? process.env.UPSTASH_REDIS_REST_TOKEN ?? ''
+    process.env.KV_REST_API_TOKEN ??
+    process.env.UPSTASH_REDIS_REST_TOKEN ??
+    process.env.STORAGE_REST_API_TOKEN ??
+    process.env.STORAGE_KV_REST_API_TOKEN ??
+    ''
 
   if (!url || !token) return null
   return new Redis({ url, token })
@@ -69,6 +80,15 @@ const redis = redisFromEnv()
 
 /** True when purchases survive restarts. False means the in-memory fallback. */
 export const isPersistent = redis !== null
+
+/** Which env prefix the Redis credentials came from, for /api/health. */
+export const redisSource: string | null = !redis
+  ? null
+  : process.env.KV_REST_API_URL
+    ? 'KV_*'
+    : process.env.UPSTASH_REDIS_REST_URL
+      ? 'UPSTASH_*'
+      : 'STORAGE_*' 
 
 /** Dev-only fallback. Kept on globalThis so hot reloads do not wipe it. */
 const globalStore = globalThis as unknown as {

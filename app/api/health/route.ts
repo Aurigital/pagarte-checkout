@@ -1,5 +1,5 @@
 import { NextResponse } from 'next/server'
-import { isPersistent } from '@/lib/purchases'
+import { isPersistent, redisSource } from '@/lib/purchases'
 import { pagarteConfig } from '@/lib/config'
 
 export const runtime = 'nodejs'
@@ -15,6 +15,7 @@ export async function GET() {
   return NextResponse.json({
     ok: true,
     persistent: isPersistent,
+    storage: redisSource ?? 'in-memory (se pierde al reiniciar)',
     mode: pagarteConfig.isLiveMode
       ? 'LIVE'
       : pagarteConfig.isTestMode
