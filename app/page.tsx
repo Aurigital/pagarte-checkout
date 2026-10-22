@@ -1,9 +1,8 @@
 'use client'
 
-import { useCallback, useEffect, useRef, useState } from 'react'
+import { useCallback, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import Link from 'next/link'
-import QRCode from 'qrcode'
+import { PagArteCheckout } from '@/components/PagArteCheckout'
 
 interface Toast {
   id: number
@@ -11,7 +10,7 @@ interface Toast {
   message: string
 }
 
-interface GeneratedCharge {
+interface Charge {
   purchaseId: string
   payUrl: string
   amount: number
@@ -32,30 +31,16 @@ export default function HomePage() {
   const [amount, setAmount] = useState('')
   const [description, setDescription] = useState('')
   const [loading, setLoading] = useState(false)
-  const [charge, setCharge] = useState<GeneratedCharge | null>(null)
+  const [charge, setCharge] = useState<Charge | null>(null)
+  const [paid, setPaid] = useState(false)
   const [toasts, setToasts] = useState<Toast[]>([])
 
-  const canvasRef = useRef<HTMLCanvasElement>(null)
-
   const addToast = useCallback((t: Omit<Toast, 'id'>) => {
-    // Random suffix: two toasts in the same millisecond would collide on Date.now() alone.
+    // Random suffix: two toasts in the same millisecond would collide.
     const id = Date.now() + Math.random()
     setToasts((prev) => [...prev, { ...t, id }])
     setTimeout(() => setToasts((prev) => prev.filter((x) => x.id !== id)), 4000)
   }, [])
-
-  // Draw the QR once the modal (and its canvas) is on screen.
-  useEffect(() => {
-    if (!charge || !canvasRef.current) return
-
-    QRCode.toCanvas(canvasRef.current, charge.payUrl, {
-      width: 220,
-      margin: 1,
-      color: { dark: '#1f2937', light: '#ffffff' },
-    }).catch(() => {
-      addToast({ type: 'error', message: 'No se pudo generar el QR' })
-    })
-  }, [charge, addToast])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -82,6 +67,8 @@ export default function HomePage() {
         throw new Error(data.error ?? 'No se pudo crear el cobro')
       }
 
+      // Straight to the checkout: it already shows the wallet QR.
+      setPaid(false)
       setCharge({
         purchaseId: data.purchaseId,
         payUrl: data.payUrl,
@@ -98,7 +85,7 @@ export default function HomePage() {
     }
   }
 
-  const handleCopy = () => {
+  const handleCopyLink = () => {
     if (!charge) return
 
     // execCommand is deprecated but still the reliable path on iOS Safari,
@@ -112,7 +99,7 @@ export default function HomePage() {
 
     try {
       document.execCommand('copy')
-      addToast({ type: 'success', message: 'Link copiado' })
+      addToast({ type: 'success', message: 'Link copiado para enviar' })
     } catch {
       addToast({ type: 'error', message: 'No se pudo copiar' })
     } finally {
@@ -120,9 +107,8 @@ export default function HomePage() {
     }
   }
 
-  const handleShare = async () => {
+  const handleShareLink = async () => {
     if (!charge) return
-
     if (navigator.share) {
       try {
         await navigator.share({ title: 'Link de pago', url: charge.payUrl })
@@ -130,7 +116,7 @@ export default function HomePage() {
         // The user dismissed the share sheet.
       }
     } else {
-      window.open(charge.payUrl, '_blank')
+      handleCopyLink()
     }
   }
 
@@ -141,10 +127,100 @@ export default function HomePage() {
 
   const reset = () => {
     setCharge(null)
+    setPaid(false)
     setAmount('')
     setDescription('')
   }
 
+  // ---- Charging: the checkout is on screen ----
+  if (charge) {
+    return (
+      <main className="min-h-screen bg-gray-50 px-4 py-8">
+        <div className="mx-auto max-w-md">
+          <header className="mb-5 flex items-start justify-between gap-4">
+            <div>
+              <p className="text-sm text-gray-500">Cobrando</p>
+              <p className="text-3xl font-bold text-gray-900">
+                {formatCRC(charge.amount)}
+              </p>
+              {charge.description ? (
+                <p className="mt-0.5 text-sm text-gray-500">{charge.description}</p>
+              ) : null}
+            </div>
+            <button
+              className="shrink-0 rounded-lg px-3 py-1.5 text-sm text-gray-500 hover:bg-gray-100"
+              onClick={reset}
+              type="button"
+            >
+              Cancelar
+            </button>
+          </header>
+
+          {paid ? (
+            <div className="rounded-xl border border-green-200 bg-green-50 p-6 text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-green-100">
+                <svg
+                  className="h-6 w-6 text-green-600"
+                  fill="none"
+                  stroke="currentColor"
+                  strokeWidth={2.5}
+                  viewBox="0 0 24 24"
+                >
+                  <path d="M5 13l4 4L19 7" strokeLinecap="round" strokeLinejoin="round" />
+                </svg>
+              </div>
+              <p className="font-semibold text-green-900">Pago recibido</p>
+              <p className="mt-1 text-sm text-green-800">
+                {formatCRC(charge.amount)} · confirmado por PagArte
+              </p>
+              <button
+                className="mt-4 rounded-lg bg-primary-600 px-5 py-2.5 text-sm font-medium text-white hover:bg-primary-700"
+                onClick={reset}
+                type="button"
+              >
+                Nuevo cobro
+              </button>
+            </div>
+          ) : (
+            <div className="overflow-hidden rounded-xl bg-white shadow-sm">
+              <PagArteCheckout
+                onPaid={() => setPaid(true)}
+                purchaseId={charge.purchaseId}
+              />
+            </div>
+          )}
+
+          {!paid ? (
+            <div className="mt-5 border-t border-gray-200 pt-4">
+              <p className="mb-2 text-center text-xs text-gray-500">
+                ¿El cliente no está presente?
+              </p>
+              <div className="grid grid-cols-2 gap-2">
+                <button
+                  className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                  onClick={handleCopyLink}
+                  type="button"
+                >
+                  Copiar link
+                </button>
+                <button
+                  className="rounded-lg bg-gray-100 px-4 py-2 text-sm font-medium text-gray-700 hover:bg-gray-200"
+                  onClick={handleShareLink}
+                  type="button"
+                >
+                  Enviar link
+                </button>
+              </div>
+            </div>
+          ) : null}
+        </div>
+
+        <Toasts toasts={toasts} />
+      </main>
+    )
+  }
+
+  // ---- Idle: the amount form ----
   return (
     <main className="min-h-screen bg-gray-50 px-4 py-8">
       <div className="mx-auto max-w-md">
@@ -162,10 +238,7 @@ export default function HomePage() {
           </button>
         </header>
 
-        <form
-          className="space-y-5 rounded-xl bg-white p-6 shadow-sm"
-          onSubmit={handleSubmit}
-        >
+        <form className="space-y-5 rounded-xl bg-white p-6 shadow-sm" onSubmit={handleSubmit}>
           <div>
             <label className="mb-1.5 block text-sm font-medium text-gray-700" htmlFor="amount">
               Monto
@@ -173,27 +246,25 @@ export default function HomePage() {
             <div className="relative">
               <span className="absolute left-4 top-1/2 -translate-y-1/2 text-gray-400">₡</span>
               <input
+                autoFocus
                 className="w-full rounded-lg border border-gray-200 py-3 pl-9 pr-4 text-lg focus:border-primary-500 focus:outline-none focus:ring-2 focus:ring-primary-500/20 disabled:opacity-50"
                 disabled={loading}
                 id="amount"
                 inputMode="decimal"
                 onChange={(e) => setAmount(e.target.value)}
                 placeholder="25000"
-                type="number"
                 step="0.01"
+                type="number"
                 value={amount}
               />
             </div>
             <p className="mt-1.5 text-xs text-gray-500">
-              PagArte cobra en colones. El cliente paga el equivalente en cripto.
+              El cliente paga el equivalente en cripto.
             </p>
           </div>
 
           <div>
-            <label
-              className="mb-1.5 block text-sm font-medium text-gray-700"
-              htmlFor="description"
-            >
+            <label className="mb-1.5 block text-sm font-medium text-gray-700" htmlFor="description">
               Descripción <span className="text-gray-400">(opcional)</span>
             </label>
             <textarea
@@ -206,7 +277,6 @@ export default function HomePage() {
               rows={2}
               value={description}
             />
-            <p className="mt-1 text-right text-xs text-gray-400">{description.length}/200</p>
           </div>
 
           <button
@@ -217,121 +287,40 @@ export default function HomePage() {
             {loading ? (
               <>
                 <svg className="h-5 w-5 animate-spin" fill="none" viewBox="0 0 24 24">
-                  <circle
-                    className="opacity-25"
-                    cx="12"
-                    cy="12"
-                    r="10"
-                    stroke="currentColor"
-                    strokeWidth="4"
-                  />
-                  <path
-                    className="opacity-75"
-                    d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z"
-                    fill="currentColor"
-                  />
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                  <path className="opacity-75" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" fill="currentColor" />
                 </svg>
                 Generando…
               </>
             ) : (
-              'Generar cobro'
+              'Cobrar'
             )}
           </button>
         </form>
-
-        <div className="mt-4 text-center">
-          <Link className="text-sm text-primary-600 hover:underline" href="/cobros">
-            Ver cobros generados →
-          </Link>
-        </div>
       </div>
 
-      {/* Charge modal with the QR */}
-      {charge ? (
-        <div
-          className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4"
-          onClick={reset}
-        >
-          <div
-            className="w-full max-w-sm rounded-2xl bg-white p-6 shadow-xl"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <div className="mb-4 flex items-start justify-between">
-              <div>
-                <h2 className="text-lg font-bold text-gray-900">Cobro generado</h2>
-                <p className="text-2xl font-bold text-primary-600">
-                  {formatCRC(charge.amount)}
-                </p>
-                {charge.description ? (
-                  <p className="mt-0.5 text-sm text-gray-500">{charge.description}</p>
-                ) : null}
-              </div>
-              <button
-                aria-label="Cerrar"
-                className="rounded-lg p-1 text-gray-400 hover:bg-gray-100"
-                onClick={reset}
-                type="button"
-              >
-                <svg
-                  className="h-5 w-5"
-                  fill="none"
-                  stroke="currentColor"
-                  strokeWidth={2}
-                  viewBox="0 0 24 24"
-                >
-                  <path d="M6 18L18 6M6 6l12 12" strokeLinecap="round" />
-                </svg>
-              </button>
-            </div>
-
-            <div className="mb-4 flex flex-col items-center rounded-xl border border-gray-100 bg-gray-50 p-4">
-              <canvas className="rounded-lg bg-white" ref={canvasRef} />
-              <p className="mt-3 text-center text-xs text-gray-500">
-                Escaneá el código con el teléfono para abrir el pago
-              </p>
-            </div>
-
-            <div className="mb-4 rounded-lg bg-gray-50 p-3">
-              <p className="break-all font-mono text-xs text-gray-600">{charge.payUrl}</p>
-            </div>
-
-            <div className="grid grid-cols-2 gap-2">
-              <button
-                className="rounded-lg bg-primary-600 px-4 py-2.5 text-sm font-medium text-white hover:bg-primary-700"
-                onClick={handleCopy}
-                type="button"
-              >
-                Copiar link
-              </button>
-              <button
-                className="rounded-lg bg-gray-100 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-200"
-                onClick={handleShare}
-                type="button"
-              >
-                Compartir
-              </button>
-            </div>
-          </div>
-        </div>
-      ) : null}
-
-      {/* Toasts */}
-      <div
-        aria-live="polite"
-        className="pointer-events-none fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 flex-col gap-2"
-      >
-        {toasts.map((t) => (
-          <div
-            className={[
-              'pointer-events-auto rounded-lg px-4 py-2.5 text-sm font-medium shadow-lg',
-              t.type === 'success' ? 'bg-gray-900 text-white' : 'bg-red-600 text-white',
-            ].join(' ')}
-            key={t.id}
-          >
-            {t.message}
-          </div>
-        ))}
-      </div>
+      <Toasts toasts={toasts} />
     </main>
+  )
+}
+
+function Toasts({ toasts }: { toasts: Toast[] }) {
+  return (
+    <div
+      aria-live="polite"
+      className="pointer-events-none fixed bottom-4 left-1/2 z-50 flex -translate-x-1/2 flex-col gap-2"
+    >
+      {toasts.map((t) => (
+        <div
+          className={[
+            'pointer-events-auto rounded-lg px-4 py-2.5 text-sm font-medium shadow-lg',
+            t.type === 'success' ? 'bg-gray-900 text-white' : 'bg-red-600 text-white',
+          ].join(' ')}
+          key={t.id}
+        >
+          {t.message}
+        </div>
+      ))}
+    </div>
   )
 }

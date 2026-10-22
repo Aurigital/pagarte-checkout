@@ -21,17 +21,18 @@ el panel, no se envían desde una wallet.
 
 ## Qué hace
 
-- **Panel de cobro** — monto en colones + descripción → link de pago y **QR**
-  para escanear con el teléfono
-- **Lista de cobros** — estado en vivo (pendiente, pagado, vencido), actualizado
-  por webhook
-- **Página de pago** — monta el SDK de PagArte para que el cliente pague
+- **Cobro inmediato** — ponés el monto y el checkout aparece al instante, con
+  el QR que el cliente escanea desde su wallet
+- **Link para enviar** — si el cliente no está presente, copiás o compartís el
+  link a la página de pago
 - **Webhook firmado** — verificación Ed25519 con los chequeos de seguridad
 
 > ⚠️ **En producción hace falta Redis.** Sin él los cobros viven en memoria y
-> se pierden cuando Vercel recicla la instancia, lo que hace que un webhook
-> pueda no encontrar la compra. Ver [docs/PERSISTENCIA.md](./docs/PERSISTENCIA.md).
-> Comprobalo en `/api/health`: `"persistent": true`.
+> se pierden cuando Vercel recicla la instancia, así que el webhook puede no
+> encontrar la compra y un pago confirmado se pierde. En Vercel → Storage,
+> elegí **Upstash** (tiene plan gratis), no Redis Cloud.
+> Ver [docs/PERSISTENCIA.md](./docs/PERSISTENCIA.md) y comprobalo en
+> `/api/health`: `"persistent": true`.
 
 ## Setup
 

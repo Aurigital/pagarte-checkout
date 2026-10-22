@@ -32,14 +32,21 @@ se puede cambiar sin tocar las rutas.
 El TTL de los eventos evita que la base crezca sin límite; a los 30 días
 cualquier reintento de PagArte ya expiró.
 
+## Sigue haciendo falta aunque no haya lista de cobros
+
+La lista se quitó del MVP, pero la persistencia **no** es opcional: el webhook
+busca la compra por `merchantOrderId`, y si no la encuentra descarta el evento.
+Sin Redis, un pago confirmado se pierde igual.
+
 ## Configurar en Vercel
 
-1. En el proyecto: **Storage → Create Database → Redis** (Upstash).
-2. Conectalo al proyecto (**Connect Project**).
-3. Vercel inyecta solo `KV_REST_API_URL` y `KV_REST_API_TOKEN`.
-4. **Redeploy** para que el deploy activo las tome.
-
-El plan Hobby incluye una base gratis, de sobra para este volumen.
+1. En el proyecto: **Storage → Create Database**.
+2. Elegí **Upstash** (Serverless Redis) y su plan **Free**.
+   > No elijas *Redis Cloud*: es otro proveedor del mismo marketplace y su
+   > plan más barato cuesta $8/mes. Upstash alcanza de sobra para este volumen.
+3. **Connect Project**.
+4. Vercel inyecta `KV_REST_API_URL` y `KV_REST_API_TOKEN` solas.
+5. **Redeploy** para que el deploy activo las tome.
 
 ## Verificar que quedó activo
 

@@ -82,7 +82,12 @@ const memory: Map<string, Purchase> =
 const memoryEvents: Set<string> =
   globalStore.__pagarteEvents ?? (globalStore.__pagarteEvents = new Set())
 
-if (!redis && process.env.NODE_ENV === 'production') {
+// NEXT_PHASE is set during `next build`, where env vars are absent by design.
+if (
+  !redis &&
+  process.env.NODE_ENV === 'production' &&
+  process.env.NEXT_PHASE !== 'phase-production-build'
+) {
   console.error(
     '[purchases] No Redis configured in production. Purchases will be LOST on ' +
       'cold starts and webhooks may not find them. Set KV_REST_API_URL and ' +

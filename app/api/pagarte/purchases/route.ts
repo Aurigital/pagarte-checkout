@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
-import { createPurchase, listPurchases } from '@/lib/purchases'
+import { createPurchase } from '@/lib/purchases'
 import { appConfig } from '@/lib/config'
 
 export const runtime = 'nodejs'
@@ -66,17 +66,3 @@ export async function POST(request: NextRequest) {
   )
 }
 
-/** Lista los cobros para el panel. */
-export async function GET() {
-  const purchases = (await listPurchases()).map((p) => ({
-    id: p.id,
-    amountMinor: p.amountMinor,
-    currency: p.currency,
-    description: p.description,
-    status: p.status,
-    createdAt: p.createdAt,
-    payUrl: `${appConfig.baseUrl}/pay/${p.id}`,
-  }))
-
-  return NextResponse.json({ success: true, purchases })
-}
